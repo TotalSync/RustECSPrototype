@@ -1,0 +1,15 @@
+# Extentions #
+##############
+*.dll
+*.bin
+*.exe
+
+*.json
+*.config
+*.cfg
+*.log
+
+
+# Directories #
+###############
+RustECS/target
