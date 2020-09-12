@@ -12,4 +12,4 @@
 
 # Directories #
 ###############
-RustECS/target
+rust_ecs/target

@@ -1,1 +1,0 @@
-{"rustc":16761476351873615079,"features":"[\"default\", \"js-sys\", \"wasm-bindgen\", \"web-sys\", \"web_sys\"]","target":10429514197457385088,"profile":9935990280773120926,"path":3489992392717638119,"deps":[[4401837023006916513,"gl_generator",false,1223954345081958257]],"local":[{"Precalculated":"0.4.0"}],"rustflags":[],"metadata":11172943089685031764}
