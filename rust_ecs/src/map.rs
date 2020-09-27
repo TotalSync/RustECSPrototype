@@ -2,18 +2,19 @@ use rltk::{ RGB, Rltk, RandomNumberGenerator, BaseMap, Algorithm2D, Point };
 use super::{Rect};
 use std::cmp::{max, min};
 use specs::prelude::*;
+use serde::{Serialize, Deserialize};
 
 pub const MAPWIDTH : usize = 80;
 pub const MAPHEIGHT : usize = 43;
 pub const MAPCOUNT : usize = MAPWIDTH * MAPHEIGHT;
 
 
-#[derive(PartialEq, Copy, Clone)]
+#[derive(PartialEq, Copy, Clone, Serialize, Deserialize)]
 pub enum TileType {
-    Wall, Floor
+    Wall, Floor, DownStairs, UpStairs
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize, Clone)]
 pub struct Map {
     pub tiles : Vec<TileType>,
     pub rooms : Vec<Rect>,
@@ -22,6 +23,10 @@ pub struct Map {
     pub revealed_tiles : Vec<bool>,
     pub visible_tiles : Vec<bool>,
     pub blocked: Vec<bool>,
+    pub depth: i32,
+
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
     pub tile_content : Vec<Vec<Entity>>
 }
 
@@ -78,7 +83,7 @@ impl Map {
 
     /// Makes a new map using the algorithm from http://rogueliketutorials.com/tutorials/tcod/part-3/
     /// This gives a handful of random rooms and corridors joining them together.
-    pub fn new_map_rooms_and_corridors() -> Map {
+    pub fn new_map_rooms_and_corridors(new_depth : i32) -> Map {
         let mut map = Map{
             tiles : vec![TileType::Wall; MAPCOUNT],
             rooms : Vec::new(),
@@ -87,7 +92,8 @@ impl Map {
             revealed_tiles : vec![false; MAPCOUNT],
             visible_tiles : vec![false; MAPCOUNT],
             blocked : vec![false; MAPCOUNT],
-            tile_content : vec![Vec::new(); MAPCOUNT]
+            tile_content : vec![Vec::new(); MAPCOUNT],
+            depth: new_depth
         };
 
         const MAX_ROOMS : i32 = 30;
@@ -124,6 +130,9 @@ impl Map {
                 map.rooms.push(new_room);
             }
         }
+        let stairs_position = map.rooms[map.rooms.len()-1].center();
+        let stairs_idx = map.xy_idx(stairs_position.0, stairs_position.1);
+        map.tiles[stairs_idx] = TileType::DownStairs;
 
         map
     }
@@ -186,7 +195,15 @@ pub fn draw_map(ecs: &World, ctx : &mut Rltk) {
                 }
                 TileType::Wall => {
                     glyph = rltk::to_cp437('#');
-                    fg = RGB::from_f32(0., 1.0, 0.);
+                    fg = RGB::from_f32(0.0, 1.0, 0.0);
+                }
+                TileType::DownStairs => {
+                    glyph = rltk::to_cp437('>');
+                    fg = RGB::from_f32(0.0, 1.0, 1.0);
+                }
+                _ =>{
+                    glyph = rltk::to_cp437('E');
+                    fg = RGB::from_f32(1.0, 0.0, 0.0);
                 }
             }
             if !map.visible_tiles[idx] { fg = fg.to_greyscale() }
