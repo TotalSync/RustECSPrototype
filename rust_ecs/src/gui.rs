@@ -321,8 +321,14 @@ pub fn draw_ui(ecs: &World, ctx : &mut Rltk) {
     draw_hollow_box(ctx, 0, 0, 49, 45, box_gray, black); // Map box
     draw_hollow_box(ctx, 0, 45, 79, 14, box_gray, black); // Log box
     draw_hollow_box(ctx, 49, 0, 30, 8, box_gray, black); // Top-right panel
+    ctx.set(0, 45, box_gray, black, to_cp437('├'));
+    ctx.set(49, 8, box_gray, black, to_cp437('├'));
+    ctx.set(49, 0, box_gray, black, to_cp437('┬'));
+    ctx.set(49, 45, box_gray, black, to_cp437('┴'));
+    ctx.set(79, 8, box_gray, black, to_cp437('┤'));
+    ctx.set(79, 45, box_gray, black, to_cp437('┤'));
     
-
+    /*
     //Health Bar
     let combat_stats = ecs.read_storage::<CombatStats>();
     let players = ecs.read_storage::<Player>();
@@ -345,7 +351,7 @@ pub fn draw_ui(ecs: &World, ctx : &mut Rltk) {
         if y < 49 { ctx.print(2, y, s); }
         y += 1;
     }
-
+    */
     //Mouse Highlight
     let mouse_pos = ctx.mouse_pos();
     ctx.set_bg(mouse_pos.0, mouse_pos.1, RGB::named(rltk::MAGENTA));
