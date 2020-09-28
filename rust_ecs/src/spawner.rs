@@ -1,7 +1,8 @@
 use rltk::{ RGB, RandomNumberGenerator };
 use specs::prelude::*;
-use super::{CombatStats, Player, Renderable, Name, Position, Viewshed, Monster,  BlocksTile, Rect, Item, 
-    ProvidesHealing, Consumable, map::MAPWIDTH, Ranged, InflictsDamage, AreaOfEffect, Confusion, SerializeMe, 
+use super::{CombatStats, Player, Renderable, Name, Position, Viewshed,
+    Monster,  BlocksTile, Rect, Item, Map,
+    ProvidesHealing, Consumable, Ranged, InflictsDamage, AreaOfEffect, Confusion, SerializeMe, 
     random_table::RandomTable, EquipmentSlot, Equippable, MeleePowerBonus,
     DefenseBonus};
 use specs::saveload::{MarkedBuilder, SimpleMarker};
@@ -51,21 +52,22 @@ fn monster<S : ToString>(ecs: &mut World, x: i32, y: i32, glyph : rltk::FontChar
 
 /// Fills a room with stuff!
 #[allow(clippy::map_entry)]
-pub fn spawn_room(ecs: &mut World, room : &Rect, map_depth: i32) {
+pub fn spawn_room(ecs: &mut World, map: &Map, room : &Rect, map_depth: i32) {
     let spawn_table = room_table(map_depth);
     let mut spawn_points : HashMap<usize, String> = HashMap::new();
+    let width = map.width as usize;
     // Scope to keep the borrow checker happy
     {
         let mut rng = ecs.write_resource::<RandomNumberGenerator>();
         let num_spawns = rng.roll_dice(1, MAX_MONSTERS + 3) + (map_depth - 1) - 3;
-
         for _i in 0 .. num_spawns {
             let mut added = false;
             let mut tries = 0;
+
             while !added && tries < 20 {
                 let x = (room.x1 + rng.roll_dice(1, i32::abs(room.x2 - room.x1))) as usize;
                 let y = (room.y1 + rng.roll_dice(1, i32::abs(room.y2 - room.y1))) as usize;
-                let idx = (y * MAPWIDTH) + x;
+                let idx = (y * width) + x;
                 if !spawn_points.contains_key(&idx) {
                     spawn_points.insert(idx, spawn_table.roll(&mut rng));
                     added = true;
@@ -74,11 +76,14 @@ pub fn spawn_room(ecs: &mut World, room : &Rect, map_depth: i32) {
                 }
             }
         }
+
     }
+    
+
     // Actually spawn the monsters
     for spawn in spawn_points.iter() {
-        let x = (*spawn.0 % MAPWIDTH) as i32;
-        let y = (*spawn.0 / MAPWIDTH) as i32;
+        let x = (*spawn.0 % width) as i32;
+        let y = (*spawn.0 / width) as i32;
 
         match spawn.1.as_ref() {
             "Goblin" => goblin(ecs, x, y),
@@ -94,7 +99,6 @@ pub fn spawn_room(ecs: &mut World, room : &Rect, map_depth: i32) {
             _ => {}
         }
     }
-
 }
 
 

@@ -99,6 +99,9 @@ pub struct InBackpack {
     pub owner : Entity
 }
 
+#[derive(Component, Debug, Serialize, Deserialize, Clone)]
+pub struct Hidden {}
+
 /*
 ==============================
         Item  Components

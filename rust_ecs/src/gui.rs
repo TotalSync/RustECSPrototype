@@ -1,6 +1,6 @@
 use rltk::{RGB, Rltk, Point, VirtualKeyCode};
 use specs::prelude::*;
-use super::{CombatStats, Player, GameLog, Map, Name, Position, State, InBackpack, Viewshed, RunState, Equipped};
+use super::{CombatStats, Player, GameLog, Map, Name, Position, State, InBackpack, Viewshed, RunState, Equipped, Hidden, camera};
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum MainMenuSelection { NewGame, LoadGame, Quit}
@@ -226,30 +226,61 @@ pub fn remove_item_menu(gs : &mut State, ctx : &mut Rltk) -> (ItemMenuResult, Op
     }
 }
 
+pub fn draw_hollow_box(
+    console: &mut Rltk,
+    sx: i32,
+    sy: i32,
+    width: i32,
+    height: i32,
+    fg: RGB,
+    bg: RGB,
+) {
+    use rltk::to_cp437;
 
-fn draw_tooltips (ecs : &World, ctx : &mut Rltk) {
+    console.set(sx, sy, fg, bg, to_cp437('┌'));
+    console.set(sx + width, sy, fg, bg, to_cp437('┐'));
+    console.set(sx, sy + height, fg, bg, to_cp437('└'));
+    console.set(sx + width, sy + height, fg, bg, to_cp437('┘'));
+    for x in sx + 1..sx + width {
+        console.set(x, sy, fg, bg, to_cp437('─'));
+        console.set(x, sy + height, fg, bg, to_cp437('─'));
+    }
+    for y in sy + 1..sy + height {
+        console.set(sx, y, fg, bg, to_cp437('│'));
+        console.set(sx + width, y, fg, bg, to_cp437('│'));
+    }
+}
+
+fn draw_tooltips(ecs: &World, ctx : &mut Rltk) {
+    let (min_x, _max_x, min_y, _max_y) = camera::get_screen_bounds(ecs, ctx);
     let map = ecs.fetch::<Map>();
     let names = ecs.read_storage::<Name>();
     let positions = ecs.read_storage::<Position>();
+    let hidden = ecs.read_storage::<Hidden>();
 
     let mouse_pos = ctx.mouse_pos();
-    if mouse_pos.0 >= map.width || mouse_pos.1 >= map.height { return; }
-    
+    let mut mouse_map_pos = mouse_pos;
+    mouse_map_pos.0 += min_x;
+    mouse_map_pos.1 += min_y;
+    if mouse_map_pos.0 >= map.width-1 || mouse_map_pos.1 >= map.height-1 || mouse_map_pos.0 < 1 || mouse_map_pos.1 < 1
+    {
+        return;
+    }
+    if !map.visible_tiles[map.xy_idx(mouse_map_pos.0, mouse_map_pos.1)] { return; }
     let mut tooltip : Vec<String> = Vec::new();
-    for (name, position) in (&names, &positions).join() {
-        let idx = map.xy_idx(position.x, position.y);
-        if position.x == mouse_pos.0 && position.y == mouse_pos.1 && map.visible_tiles[idx] {
+    for (name, position, _hidden) in (&names, &positions, !&hidden).join() {
+        if position.x == mouse_map_pos.0 && position.y == mouse_map_pos.1 {
             tooltip.push(name.name.to_string());
         }
     }
 
     if !tooltip.is_empty() {
-        let mut width : i32 = 0;
+        let mut width :i32 = 0;
         for s in tooltip.iter() {
-            if width < s.len() as i32 {width = s.len() as i32; }
+            if width < s.len() as i32 { width = s.len() as i32; }
         }
-        width +=3;
-        
+        width += 3;
+
         if mouse_pos.0 > 40 {
             let arrow_pos = Point::new(mouse_pos.0 - 2, mouse_pos.1);
             let left_x = mouse_pos.0 - width;
@@ -278,12 +309,19 @@ fn draw_tooltips (ecs : &World, ctx : &mut Rltk) {
             ctx.print_color(arrow_pos.x, arrow_pos.y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), &"<-".to_string());
         }
     }
-
 }
 
 pub fn draw_ui(ecs: &World, ctx : &mut Rltk) {
     //Log Box.
-    ctx.draw_box(0, 43, 79, 6, RGB::named(rltk::WHITE), RGB::named(rltk::BLACK));
+    use rltk::to_cp437;
+    let box_gray : RGB = RGB::from_hex("#999999").expect("Oops");
+    let black = RGB::named(rltk::BLACK);
+
+    draw_hollow_box(ctx, 0, 0, 79, 59, box_gray, black); // Overall box
+    draw_hollow_box(ctx, 0, 0, 49, 45, box_gray, black); // Map box
+    draw_hollow_box(ctx, 0, 45, 79, 14, box_gray, black); // Log box
+    draw_hollow_box(ctx, 49, 0, 30, 8, box_gray, black); // Top-right panel
+    
 
     //Health Bar
     let combat_stats = ecs.read_storage::<CombatStats>();
@@ -315,6 +353,7 @@ pub fn draw_ui(ecs: &World, ctx : &mut Rltk) {
 }
 
 pub fn ranged_target(gs : &mut State, ctx : &mut Rltk, range : i32) -> (ItemMenuResult, Option<Point>) {
+    let (min_x, max_x, min_y, max_y) = camera::get_screen_bounds(&gs.ecs, ctx);
     let player_entity = gs.ecs.fetch::<Entity>();
     let player_pos = gs.ecs.fetch::<Point>();
     let viewsheds = gs.ecs.read_storage::<Viewshed>();
@@ -329,8 +368,12 @@ pub fn ranged_target(gs : &mut State, ctx : &mut Rltk, range : i32) -> (ItemMenu
         for idx in visible.visible_tiles.iter() {
             let distance = rltk::DistanceAlg::Pythagoras.distance2d(*player_pos, *idx);
             if distance <= range as f32 {
-                ctx.set_bg(idx.x, idx.y, RGB::named(rltk::BLUE));
-                available_cells.push(idx);
+                let screen_x = idx.x - min_x;
+                let screen_y = idx.y - min_y;
+                if screen_x > 1 && screen_x < (max_x - min_x)-1 && screen_y > 1 && screen_y < (max_y - min_y)-1 {
+                    ctx.set_bg(screen_x, screen_y, RGB::named(rltk::BLUE));
+                    available_cells.push(idx);
+                }
             }
         }
     } else {
@@ -339,12 +382,15 @@ pub fn ranged_target(gs : &mut State, ctx : &mut Rltk, range : i32) -> (ItemMenu
 
     // Draw mouse cursor
     let mouse_pos = ctx.mouse_pos();
+    let mut mouse_map_pos = mouse_pos;
+    mouse_map_pos.0 += min_x;
+    mouse_map_pos.1 += min_y;
     let mut valid_target = false;
-    for idx in available_cells.iter() { if idx.x == mouse_pos.0 && idx.y == mouse_pos.1 { valid_target = true; } }
+    for idx in available_cells.iter() { if idx.x == mouse_map_pos.0 && idx.y == mouse_map_pos.1 { valid_target = true; } }
     if valid_target {
         ctx.set_bg(mouse_pos.0, mouse_pos.1, RGB::named(rltk::CYAN));
         if ctx.left_click {
-            return (ItemMenuResult::Selected, Some(Point::new(mouse_pos.0, mouse_pos.1)));
+            return (ItemMenuResult::Selected, Some(Point::new(mouse_map_pos.0, mouse_map_pos.1)));
         }
     } else {
         ctx.set_bg(mouse_pos.0, mouse_pos.1, RGB::named(rltk::RED));

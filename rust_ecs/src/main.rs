@@ -29,6 +29,8 @@ mod inventory_system;
 use inventory_system::{ItemCollectionSystem, ItemDropSystem, ItemUseSystem, ItemRemoveSystem};
 pub mod saveload_system;
 pub mod random_table;
+mod camera;
+
 
 
 #[derive(PartialEq, Copy, Clone)]
@@ -135,7 +137,7 @@ impl State {
     
         // Spawn bad guys
         for room in worldmap.rooms.iter().skip(1) {
-            spawner::spawn_room(&mut self.ecs, room, current_depth);
+            spawner::spawn_room(&mut self.ecs, &worldmap, room, current_depth);
         }
     
         // Place the player and update resources
@@ -187,7 +189,7 @@ impl State {
     
         // Spawn bad guys
         for room in worldmap.rooms.iter().skip(1) {
-            spawner::spawn_room(&mut self.ecs, room, 1);
+            spawner::spawn_room(&mut self.ecs, &worldmap, room, 1);
         }
     
         // Place the player and update resources
@@ -226,22 +228,13 @@ impl GameState for State {
             RunState::MainMenu{ .. } => {  }
             RunState::GameOver{ .. } => {  }
             _ => {
-                draw_map(&self.ecs, ctx);
-    
-                {
-                    let positions = self.ecs.read_storage::<Position>();
-                    let renderables = self.ecs.read_storage::<Renderable>();
-                    let map = self.ecs.fetch::<Map>();
-                    
-                    
-                    let mut data = (&positions, &renderables).join().collect::<Vec<_>>();
-                    data.sort_by(|&a, &b| b.1.render_order.cmp(&a.1.render_order) );
-                    for (pos, render) in data.iter() {
-                        let idx = map.xy_idx(pos.x, pos.y);
-                        if map.visible_tiles[idx] { ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph) }
-                    }
-                    gui::draw_ui(&self.ecs, ctx);
+                /* Need to uncomment once map generation is created. This will allow map rendering without crashing.
+                if self.mapgen_index < self.mapgen_history.len() {  
+                    camera::render_debug_map(&self.mapgen_history[self.mapgen_index], ctx); 
                 }
+                */
+                camera::render_camera(&self.ecs, ctx);
+                gui::draw_ui(&self.ecs, ctx);
             }
         }
         match newrunstate {            
@@ -372,13 +365,14 @@ impl GameState for State {
 
 fn main() -> rltk::BError {
     use rltk::RltkBuilder;
-    let mut context = RltkBuilder::simple80x50()
-        .with_title("Roguelike Tutorial")
+    let mut context = RltkBuilder::simple(80,60).unwrap()
+        .with_title("TBD Roguelike")
         .build()?;
     context.with_post_scanlines(true);
     let mut gs = State {
         ecs: World::new(),
     };
+
     //=====================COMPONENT REGISTERING=========================//
     //                                                                   //
     //                                                                   //
@@ -399,6 +393,7 @@ fn main() -> rltk::BError {
     gs.ecs.register::<WantsToUseItem>();  
     gs.ecs.register::<WantsToRemoveItem>();
     gs.ecs.register::<InBackpack>();
+    gs.ecs.register::<Hidden>();
 
     gs.ecs.register::<Consumable>();
     gs.ecs.register::<ProvidesHealing>();
@@ -428,7 +423,7 @@ fn main() -> rltk::BError {
     //Mob Creation
     gs.ecs.insert(rltk::RandomNumberGenerator::new());
     for room in map.rooms.iter().skip(1) {
-        spawner::spawn_room(&mut gs.ecs, room, 1);
+        spawner::spawn_room(&mut gs.ecs, &map , room, 1);
     }
     
     
@@ -437,7 +432,7 @@ fn main() -> rltk::BError {
     gs.ecs.insert(Point::new(player_x, player_y));
     gs.ecs.insert(player_entity);
     gs.ecs.insert(RunState::MainMenu{ menu_selection: gui::MainMenuSelection::NewGame });
-    gs.ecs.insert(gamelog::GameLog{ entries : vec!["Welcome to Rusty Roguelike".to_string()] });
+    gs.ecs.insert(gamelog::GameLog{ entries : vec!["Welcome to Unnamed Roguelike".to_string()] });
     
     
     rltk::main_loop(context, gs)
