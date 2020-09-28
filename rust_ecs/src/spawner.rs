@@ -4,7 +4,7 @@ use super::{CombatStats, Player, Renderable, Name, Position, Viewshed,
     Monster,  BlocksTile, Rect, Item, Map,
     ProvidesHealing, Consumable, Ranged, InflictsDamage, AreaOfEffect, Confusion, SerializeMe, 
     random_table::RandomTable, EquipmentSlot, Equippable, MeleePowerBonus,
-    DefenseBonus};
+    DefenseBonus, BackpackSize};
 use specs::saveload::{MarkedBuilder, SimpleMarker};
 use std::collections::HashMap;
 
@@ -25,6 +25,7 @@ pub fn player(ecs : &mut World, player_x : i32, player_y : i32) -> Entity {
         .with(Viewshed{ visible_tiles : Vec::new(), range: 8, dirty: true })
         .with(Name{name: "Player".to_string() })
         .with(CombatStats{ max_hp: 30, hp: 30, defense: 2, power: 5 })
+        .with(BackpackSize{size: 8, space: 0 })
         .marked::<SimpleMarker<SerializeMe>>()
         .build()
 }
@@ -104,7 +105,7 @@ pub fn spawn_room(ecs: &mut World, map: &Map, room : &Rect, map_depth: i32) {
 
 fn room_table(map_depth: i32) -> RandomTable {
     RandomTable::new()
-        .add("Goblin", 10)
+        .add("Goblin", 3)
         .add("Orc", 1 + map_depth)
         .add("Health Potion", 7)
         .add("Fireball Scroll", 2 + map_depth)

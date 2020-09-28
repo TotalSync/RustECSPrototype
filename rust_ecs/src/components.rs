@@ -99,12 +99,18 @@ pub struct InBackpack {
     pub owner : Entity
 }
 
+#[derive(Component, Serialize, Deserialize, Clone)]
+pub struct BackpackSize {
+    pub size: i32,  // Maximum Capacity
+    pub space: i32  // Number of spaces occupied
+}
+
 #[derive(Component, Debug, Serialize, Deserialize, Clone)]
 pub struct Hidden {}
 
 /*
 ==============================
-        Item  Components
+//      Item  Components    //
 ==============================
 */ 
 

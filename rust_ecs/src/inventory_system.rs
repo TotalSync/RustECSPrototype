@@ -2,7 +2,7 @@ use specs::prelude::*;
 use super::{WantsToUseItem, WantsToPickupItem, WantsToDropItem, Name,
     InBackpack, Position, gamelog::GameLog, CombatStats, ProvidesHealing,
     SufferDamage, InflictsDamage, Map, Consumable, AreaOfEffect, Confusion,
-    Equippable, Equipped, WantsToRemoveItem
+    Equippable, Equipped, WantsToRemoveItem, BackpackSize
     };
 
 pub struct ItemCollectionSystem {}
@@ -14,18 +14,27 @@ impl<'a> System<'a> for ItemCollectionSystem {
                         WriteStorage<'a, WantsToPickupItem>,
                         WriteStorage<'a, Position>,
                         ReadStorage<'a, Name>,
-                        WriteStorage<'a, InBackpack>
+                        WriteStorage<'a, InBackpack>,
+                        WriteStorage<'a, BackpackSize>
                       );
 
     fn run(&mut self, data : Self::SystemData) {
-        let (player_entity, mut gamelog, mut wants_pickup, mut positions, names, mut backpack) = data;
-
+        let (player_entity, mut gamelog, mut wants_pickup, mut positions, names, mut backpack, mut pack_spaces) = data;
+        let mut player_pack_space = pack_spaces.get_mut(*player_entity).expect("Could not get player pack space for pickup");
         for pickup in wants_pickup.join() {
-            positions.remove(pickup.item);
-            backpack.insert(pickup.item, InBackpack{ owner: pickup.collected_by }).expect("Unable to insert backpack entry");
-
             if pickup.collected_by == *player_entity {
-                gamelog.entries.push(format!("You pick up the {}.", names.get(pickup.item).expect("Item does not have a name to display.").name));
+                if player_pack_space.space == player_pack_space.size {
+                    gamelog.entries.push(format!("You do not have space for the {}.", names.get(pickup.item).expect("Item does not have a name to display.").name));
+                } else {
+                    gamelog.entries.push(format!("You pick up the {}.", names.get(pickup.item).expect("Item does not have a name to display.").name));
+                    positions.remove(pickup.item);
+                    backpack.insert(pickup.item, InBackpack{ owner: pickup.collected_by }).expect("Unable to insert backpack entry");
+                    player_pack_space.space += 1;
+                }
+                
+            } else {
+                positions.remove(pickup.item);
+                backpack.insert(pickup.item, InBackpack{ owner: pickup.collected_by }).expect("Unable to insert backpack entry");
             }
         }
 
@@ -43,11 +52,12 @@ impl<'a> System<'a> for ItemDropSystem {
                         WriteStorage<'a, WantsToDropItem>,
                         ReadStorage<'a, Name>,
                         WriteStorage<'a, Position>,
-                        WriteStorage<'a, InBackpack>
+                        WriteStorage<'a, InBackpack>,
+                        WriteStorage<'a, BackpackSize>
                       );
 
     fn run(&mut self, data : Self::SystemData) {
-        let (player_entity, mut gamelog, entities, mut wants_drop, names, mut positions, mut backpack) = data;
+        let (player_entity, mut gamelog, entities, mut wants_drop, names, mut positions, mut backpack, mut pack_spaces) = data;
 
         for (entity, to_drop) in (&entities, &wants_drop).join() {
             let mut dropper_pos : Position = Position{x:0, y:0};
@@ -60,7 +70,9 @@ impl<'a> System<'a> for ItemDropSystem {
             backpack.remove(to_drop.item);
 
             if entity == *player_entity {
+                let player_pack = pack_spaces.get_mut(entity).expect("Could not obtain player pack space for item drop.");
                 gamelog.entries.push(format!("You drop the {}.", names.get(to_drop.item).unwrap().name));
+                player_pack.space -= 1;
             }
         }
 
@@ -87,13 +99,14 @@ impl<'a> System<'a> for ItemUseSystem {
                         WriteStorage<'a, Confusion>,
                         ReadStorage<'a, Equippable>,
                         WriteStorage<'a, Equipped>,
-                        WriteStorage<'a, InBackpack>
+                        WriteStorage<'a, InBackpack>,
+                        WriteStorage<'a, BackpackSize>
                       );
 
     fn run(&mut self, data : Self::SystemData) {
         let (player_entity, mut gamelog, map, entities, mut wants_use, names,
             consumables, healing, inflict_damage, mut combat_stats, mut suffer_damage,
-            aoe, mut confused, equippable, mut equipped, mut backpack) = data;
+            aoe, mut confused, equippable, mut equipped, mut backpack, mut backpack_size) = data;
 
         for (entity, useitem) in (&entities, &wants_use).join() {
             let mut used_item = true;
@@ -222,10 +235,12 @@ impl<'a> System<'a> for ItemUseSystem {
             // If its a consumable, we delete it on use
             if used_item {
                 let consumable = consumables.get(useitem.item);
+                let mut backpack = backpack_size.get_mut(*player_entity).expect("unable to get players backpack space");
                 match consumable {
                     None => {}
                     Some(_) => {
                         entities.delete(useitem.item).expect("Delete failed");
+                        (*backpack).space -= 1;
                     }
                 }
             }

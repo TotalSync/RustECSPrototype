@@ -334,7 +334,7 @@ impl GameState for State {
                     gui::ItemMenuResult::Selected => {
                         let item_entity = result.1.unwrap();
                         let mut intent = self.ecs.write_storage::<WantsToRemoveItem>();
-                        intent.insert(*self.ecs.fetch::<Entity>(), WantsToRemoveItem{ item: item_entity}).expect("Unable to insert intent.");
+                        intent.insert(*self.ecs.fetch::<Entity>(), WantsToRemoveItem{ item: item_entity }).expect("Unable to insert intent.");
                         newrunstate = RunState::PlayerTurn;
                     }
                 }
@@ -393,6 +393,7 @@ fn main() -> rltk::BError {
     gs.ecs.register::<WantsToUseItem>();  
     gs.ecs.register::<WantsToRemoveItem>();
     gs.ecs.register::<InBackpack>();
+    gs.ecs.register::<BackpackSize>();
     gs.ecs.register::<Hidden>();
 
     gs.ecs.register::<Consumable>();

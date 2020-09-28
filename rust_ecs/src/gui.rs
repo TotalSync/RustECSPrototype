@@ -1,6 +1,6 @@
 use rltk::{RGB, Rltk, Point, VirtualKeyCode};
 use specs::prelude::*;
-use super::{CombatStats, Player, GameLog, Map, Name, Position, State, InBackpack, Viewshed, RunState, Equipped, Hidden, camera};
+use super::{CombatStats, Player, GameLog, Map, Name, Position, State, InBackpack, Viewshed, RunState, Equipped, Hidden, camera, BackpackSize, Renderable, Item};
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum MainMenuSelection { NewGame, LoadGame, Quit}
@@ -251,6 +251,46 @@ pub fn draw_hollow_box(
     }
 }
 
+pub fn draw_inventory_line(
+    console: &mut Rltk,
+    sx: i32,
+    sy: i32,
+    slots: i32,
+    fg: RGB,
+    bg: RGB,
+){
+    use rltk::to_cp437;
+    /*
+    ┌─ ┬─ ┬─┐
+    
+    └─ ┴─ ┴─┘
+     2  3*  1 
+
+    */
+    let width = slots * 2;
+
+    //Section 1.1
+    console.set(sx + width, sy, fg, bg, to_cp437('┐'));
+    console.set(sx + width, sy + 2, fg, bg, to_cp437('┘'));
+    console.set(sx + width - 1, sy, fg, bg, to_cp437('─'));
+    console.set(sx + width - 1, sy + 2, fg, bg, to_cp437('─'));
+    //Secion 2
+    console.set(sx, sy, fg, bg, to_cp437('┌'));
+    console.set(sx, sy + 2, fg, bg, to_cp437('└'));
+    console.set(sx + 1, sy, fg, bg, to_cp437('─'));
+    console.set(sx + 1, sy + 2, fg, bg, to_cp437('─'));
+    //Section 3
+    if slots > 1 {
+        for x in 1..slots{
+            console.set(sx + x * 2 , sy, fg, bg, to_cp437('┬'));
+            console.set(sx + x * 2 , sy+2, fg, bg, to_cp437('┴'));
+            console.set(sx + x * 2 + 1, sy, fg, bg, to_cp437('─'));
+            console.set(sx + x * 2 + 1, sy+2, fg, bg, to_cp437('─'));
+        } 
+    }
+}
+
+
 fn draw_tooltips(ecs: &World, ctx : &mut Rltk) {
     let (min_x, _max_x, min_y, _max_y) = camera::get_screen_bounds(ecs, ctx);
     let map = ecs.fetch::<Map>();
@@ -311,6 +351,30 @@ fn draw_tooltips(ecs: &World, ctx : &mut Rltk) {
     }
 }
 
+fn draw_inventory(ecs: &World, ctx: &mut Rltk) {
+    let entities = ecs.entities();
+    let player_entity = ecs.fetch::<Entity>();
+    //let names = ecs.read_storage::<Name>();
+    let renderables = ecs.read_storage::<Renderable>();
+    let backpacks = ecs.read_storage::<InBackpack>();
+    let pack_sizes = ecs.read_storage::<BackpackSize>();
+
+    let player_pack_size = pack_sizes.get(*player_entity).expect("Could not obtain player pack size.");
+
+    //let item_in_p_inv = (item, inpack) in (&backpacks, )
+
+    let inventory_loc = (50, 19);
+    
+    draw_inventory_line(ctx, inventory_loc.0, inventory_loc.1, player_pack_size.size,  RGB::from_hex("#AAAAAA").expect("Oops"), RGB::named(rltk::BLACK));
+    let mut item_offset = (inventory_loc.0 + 1, inventory_loc.1 + 1);
+    for (entity, _pack) in (&entities, &backpacks).join().filter(|item| item.1.owner == *player_entity ) {
+        let render = renderables.get(entity).expect("Crash on get item render details for UI.");
+        ctx.set( item_offset.0, item_offset.1, render.fg , render.bg, render.glyph);
+        item_offset.0 += 2; 
+    }
+
+}
+
 pub fn draw_ui(ecs: &World, ctx : &mut Rltk) {
     //Log Box.
     use rltk::to_cp437;
@@ -328,30 +392,34 @@ pub fn draw_ui(ecs: &World, ctx : &mut Rltk) {
     ctx.set(79, 8, box_gray, black, to_cp437('┤'));
     ctx.set(79, 45, box_gray, black, to_cp437('┤'));
     
-    /*
     //Health Bar
     let combat_stats = ecs.read_storage::<CombatStats>();
     let players = ecs.read_storage::<Player>();
     for (_player, stats) in (&players, &combat_stats).join() {
-        let health = format!(" HP: {} / {} ", stats.hp, stats.max_hp);
-        ctx.print_color(12, 43, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), &health);
-
-        ctx.draw_bar_horizontal(28, 43, 51, stats.hp, stats.max_hp, RGB::named(rltk::RED), RGB::named(rltk::BLACK));
+        //let health = format!(" HP: {} / {} ", stats.hp, stats.max_hp);
+        ctx.print_color_centered_at(49, 2, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), &stats.hp);
+        ctx.print_color_centered_at(51, 3, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), &("──".to_string())); // This has to be offset for some reason?
+        ctx.print_color_centered_at(49, 4, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), &stats.max_hp);
+        
+        ctx.draw_bar_vertical(49, 5, 12, stats.hp, stats.max_hp, RGB::named(rltk::RED), RGB::named(rltk::BLACK));
     }
-
+    
+    /*
     // Depth Counter
     let map = ecs.fetch::<Map>();
     let depth = format!("Depth: {}", map.depth);
     ctx.print_color(2, 43, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), &depth);
+    */
 
     //Game Log
     let log = ecs.fetch::<GameLog>();
-    let mut y = 44;
+    let mut y = 46;
     for s in log.entries.iter().rev() {
-        if y < 49 { ctx.print(2, y, s); }
+        if y < 59 { ctx.print(2, y, s); }
         y += 1;
     }
-    */
+    draw_inventory(ecs, ctx);
+
     //Mouse Highlight
     let mouse_pos = ctx.mouse_pos();
     ctx.set_bg(mouse_pos.0, mouse_pos.1, RGB::named(rltk::MAGENTA));
