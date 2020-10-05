@@ -1,6 +1,7 @@
 use rltk::{RGB, Rltk, Point, VirtualKeyCode};
 use specs::prelude::*;
-use super::{CombatStats, Player, GameLog, Map, Name, Position, State, InBackpack, Viewshed, RunState, Equipped, Hidden, camera, BackpackSize, Renderable, Item};
+use super::{CombatStats, Player, GameLog, Map, Name, Position, State, InBackpack, 
+    Viewshed, RunState, Equipped, Hidden, camera, BackpackSize, Renderable, Item, rex_assets::RexAssets};
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum MainMenuSelection { NewGame, LoadGame, Quit}
@@ -321,7 +322,8 @@ impl Tooltip {
 
     fn height(&self) -> i32 { self.lines.len() as i32 + 2i32 }
 
-    fn render(&self, ctx : &mut Rltk, x : i32, y : i32) {
+    fn render(&self, ctx : &mut Rltk, ecs : &World, x : i32, y : i32) {
+        /*
         let box_gray : RGB = RGB::from_hex("#999999").expect("Oops");
         let light_gray : RGB = RGB::from_hex("#DDDDDD").expect("Oops");
         let white = RGB::named(rltk::WHITE);
@@ -331,12 +333,16 @@ impl Tooltip {
             let col = if i == 0 { white } else { light_gray };
             ctx.print_color(x+1, y+i as i32+1, col, black, &s);
         }
+        */
+        let assests =  ecs.fetch::<RexAssets>();
+        ctx.render_xp_sprite(&assests.de_card, 0,0);
     }
 
-    // For model, u16 is the true type of the glyph
+
     fn new_card<'a>( name: &Name, /*stats: CombatStats,*/ model: &Renderable) -> Tooltip{
         let mut tip = Tooltip::new();
-        let name_too_large = name.name.len() <= 14;
+
+        let name_too_large = name.name.len() >= 14;
         let new_name : String;
         if name_too_large {
             new_name = name.name[0..14].to_string();
@@ -374,6 +380,7 @@ fn draw_tooltips(ecs: &World, ctx : &mut Rltk) {
         for (entity, name, position, _hidden, renderable) in (&Entities, &names, &positions, !&hidden, &Renderables).join() {
             if position.x == mouse_map_pos.0 && position.y == mouse_map_pos.1 {
                 let tooltip = Tooltip::new_card(name, renderable);
+                tooltip.render(ctx, ecs, mouse_map_pos.0 + 2, mouse_map_pos.1);
             }
         }
     } else {

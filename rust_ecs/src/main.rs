@@ -30,6 +30,7 @@ use inventory_system::{ItemCollectionSystem, ItemDropSystem, ItemUseSystem, Item
 pub mod saveload_system;
 pub mod random_table;
 mod camera;
+pub mod rex_assets;
 
 
 
@@ -412,6 +413,7 @@ fn main() -> rltk::BError {
     gs.ecs.register::<SerializationHelper>();
     
     gs.ecs.insert(SimpleMarkerAllocator::<SerializeMe>::new());
+    gs.ecs.insert(rex_assets::RexAssets::new());
 
     //====================================================================
 
