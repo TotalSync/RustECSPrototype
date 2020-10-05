@@ -290,6 +290,64 @@ pub fn draw_inventory_line(
     }
 }
 
+enum TipType {
+    Unknown,
+    Monster,
+    Item
+}
+//Unimplemented tooltips
+struct Tooltip {
+    lines : Vec<String>,
+    ttype : TipType
+}
+impl Tooltip {
+    fn new() -> Tooltip {
+        Tooltip { lines : Vec::new(), ttype: TipType::Unknown}
+    }
+
+    fn add<S:ToString>(&mut self, line : S) {
+        self.lines.push(line.to_string());
+    }
+
+    fn width(&self) -> i32 {
+        let mut max = 0;
+        for s in self.lines.iter() {
+            if s.len() > max {
+                max = s.len();
+            }
+        }
+        max as i32 + 2i32
+    }
+
+    fn height(&self) -> i32 { self.lines.len() as i32 + 2i32 }
+
+    fn render(&self, ctx : &mut Rltk, x : i32, y : i32) {
+        let box_gray : RGB = RGB::from_hex("#999999").expect("Oops");
+        let light_gray : RGB = RGB::from_hex("#DDDDDD").expect("Oops");
+        let white = RGB::named(rltk::WHITE);
+        let black = RGB::named(rltk::BLACK);
+        ctx.draw_box(x, y, self.width()-1, self.height()-1, white, box_gray);
+        for (i,s) in self.lines.iter().enumerate() {
+            let col = if i == 0 { white } else { light_gray };
+            ctx.print_color(x+1, y+i as i32+1, col, black, &s);
+        }
+    }
+
+    // For model, u16 is the true type of the glyph
+    fn new_card<'a>( name: &Name, /*stats: CombatStats,*/ model: &Renderable) -> Tooltip{
+        let mut tip = Tooltip::new();
+        let name_too_large = name.name.len() <= 14;
+        let new_name : String;
+        if name_too_large {
+            new_name = name.name[0..14].to_string();
+        } else {
+
+        }
+        tip
+    }
+}
+
+
 
 fn draw_tooltips(ecs: &World, ctx : &mut Rltk) {
     let (min_x, _max_x, min_y, _max_y) = camera::get_screen_bounds(ecs, ctx);
@@ -298,60 +356,74 @@ fn draw_tooltips(ecs: &World, ctx : &mut Rltk) {
     let positions = ecs.read_storage::<Position>();
     let hidden = ecs.read_storage::<Hidden>();
 
+    let details = ctx.key == Some(VirtualKeyCode::LShift) || ctx.key == Some(VirtualKeyCode::RShift);
     let mouse_pos = ctx.mouse_pos();
     let mut mouse_map_pos = mouse_pos;
     mouse_map_pos.0 += min_x;
     mouse_map_pos.1 += min_y;
-    if mouse_map_pos.0 >= map.width-1 || mouse_map_pos.1 >= map.height-1 || mouse_map_pos.0 < 1 || mouse_map_pos.1 < 1
-    {
+
+    if mouse_map_pos.0 >= map.width-1 || mouse_map_pos.1 >= map.height-1 || mouse_map_pos.0 < 1 || mouse_map_pos.1 < 1 {
         return;
     }
     if !map.visible_tiles[map.xy_idx(mouse_map_pos.0, mouse_map_pos.1)] { return; }
-    let mut tooltip : Vec<String> = Vec::new();
-    for (name, position, _hidden) in (&names, &positions, !&hidden).join() {
-        if position.x == mouse_map_pos.0 && position.y == mouse_map_pos.1 {
-            tooltip.push(name.name.to_string());
-        }
-    }
 
-    if !tooltip.is_empty() {
-        let mut width :i32 = 0;
-        for s in tooltip.iter() {
-            if width < s.len() as i32 { width = s.len() as i32; }
+    if details {
+        let Entities = ecs.entities();
+        let Renderables = ecs.read_storage::<Renderable>();
+        //let Stats = ecs.read_storage::<CombatStats>();
+        for (entity, name, position, _hidden, renderable) in (&Entities, &names, &positions, !&hidden, &Renderables).join() {
+            if position.x == mouse_map_pos.0 && position.y == mouse_map_pos.1 {
+                let tooltip = Tooltip::new_card(name, renderable);
+            }
         }
-        width += 3;
+    } else {
+        let mut tooltip : Vec<String> = Vec::new();
+        for (name, position, _hidden) in (&names, &positions, !&hidden).join() {
+            if position.x == mouse_map_pos.0 && position.y == mouse_map_pos.1 {
+                tooltip.push(name.name.to_string());
+            }
+        }
 
-        if mouse_pos.0 > 40 {
-            let arrow_pos = Point::new(mouse_pos.0 - 2, mouse_pos.1);
-            let left_x = mouse_pos.0 - width;
-            let mut y = mouse_pos.1;
+        if !tooltip.is_empty() {
+            let mut width :i32 = 0;
             for s in tooltip.iter() {
-                ctx.print_color(left_x, y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), s);
-                let padding = (width - s.len() as i32)-1;
-                for i in 0..padding {
-                    ctx.print_color(arrow_pos.x - i, y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), &" ".to_string());
-                }
-                y += 1;
+                if width < s.len() as i32 { width = s.len() as i32; }
             }
-            ctx.print_color(arrow_pos.x, arrow_pos.y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), &"->".to_string());
-        } else {
-            let arrow_pos = Point::new(mouse_pos.0 + 1, mouse_pos.1);
-            let left_x = mouse_pos.0 +3;
-            let mut y = mouse_pos.1;
-            for s in tooltip.iter() {
-                ctx.print_color(left_x + 1, y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), s);
-                let padding = (width - s.len() as i32)-1;
-                for i in 0..padding {
-                    ctx.print_color(arrow_pos.x + 1 + i, y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), &" ".to_string());
+            width += 3;
+
+            if mouse_pos.0 > 40 {
+                let arrow_pos = Point::new(mouse_pos.0 - 2, mouse_pos.1);
+                let left_x = mouse_pos.0 - width;
+                let mut y = mouse_pos.1;
+                for s in tooltip.iter() {
+                    ctx.print_color(left_x, y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), s);
+                    let padding = (width - s.len() as i32)-1;
+                    for i in 0..padding {
+                        ctx.print_color(arrow_pos.x - i, y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), &" ".to_string());
+                    }
+                    y += 1;
                 }
-                y += 1;
+                ctx.print_color(arrow_pos.x, arrow_pos.y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), &"->".to_string());
+            } else {
+                let arrow_pos = Point::new(mouse_pos.0 + 1, mouse_pos.1);
+                let left_x = mouse_pos.0 +3;
+                let mut y = mouse_pos.1;
+                for s in tooltip.iter() {
+                    ctx.print_color(left_x + 1, y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), s);
+                    let padding = (width - s.len() as i32)-1;
+                    for i in 0..padding {
+                        ctx.print_color(arrow_pos.x + 1 + i, y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), &" ".to_string());
+                    }
+                    y += 1;
+                }
+                ctx.print_color(arrow_pos.x, arrow_pos.y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), &"<-".to_string());
             }
-            ctx.print_color(arrow_pos.x, arrow_pos.y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), &"<-".to_string());
         }
     }
 }
 
 fn draw_inventory(ecs: &World, ctx: &mut Rltk) {
+    
     let entities = ecs.entities();
     let player_entity = ecs.fetch::<Entity>();
     //let names = ecs.read_storage::<Name>();
