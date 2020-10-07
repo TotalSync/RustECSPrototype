@@ -108,6 +108,11 @@ pub struct BackpackSize {
 #[derive(Component, Debug, Serialize, Deserialize, Clone)]
 pub struct Hidden {}
 
+#[derive(Component, PartialEq, Debug, Serialize, Deserialize, Clone, Copy )]
+pub struct CardID{
+    pub id : u32
+}
+
 /*
 ==============================
 //      Item  Components    //

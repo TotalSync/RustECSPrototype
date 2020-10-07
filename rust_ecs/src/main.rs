@@ -47,7 +47,7 @@ pub enum RunState {
     SaveGame,
     NextLevel,
     ShowRemoveItem,
-    GameOver
+    GameOver, 
 }
 
 pub struct State {
@@ -368,6 +368,7 @@ fn main() -> rltk::BError {
     use rltk::RltkBuilder;
     let mut context = RltkBuilder::simple(80,60).unwrap()
         .with_title("TBD Roguelike")
+        //.with_advanced_input(true)
         .build()?;
     context.with_post_scanlines(true);
     let mut gs = State {
@@ -396,6 +397,7 @@ fn main() -> rltk::BError {
     gs.ecs.register::<InBackpack>();
     gs.ecs.register::<BackpackSize>();
     gs.ecs.register::<Hidden>();
+    gs.ecs.register::<CardID>();
 
     gs.ecs.register::<Consumable>();
     gs.ecs.register::<ProvidesHealing>();
@@ -428,7 +430,6 @@ fn main() -> rltk::BError {
     for room in map.rooms.iter().skip(1) {
         spawner::spawn_room(&mut gs.ecs, &map , room, 1);
     }
-    
     
     
     gs.ecs.insert(map);

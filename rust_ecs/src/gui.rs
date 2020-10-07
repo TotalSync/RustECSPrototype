@@ -1,7 +1,9 @@
-use rltk::{RGB, Rltk, Point, VirtualKeyCode};
+use rltk::{RGB, Rltk, Point, VirtualKeyCode, INPUT};
 use specs::prelude::*;
-use super::{CombatStats, Player, GameLog, Map, Name, Position, State, InBackpack, 
-    Viewshed, RunState, Equipped, Hidden, camera, BackpackSize, Renderable, Item, rex_assets::RexAssets};
+use rltk::{rex::XpFile};
+use super::{CombatStats, Player, GameLog, Map, Name, Position, State, InBackpack, Monster,
+    Viewshed, RunState, Equipped, Hidden, camera, BackpackSize, Renderable, Item, rex_assets::RexAssets, 
+    CardID};
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum MainMenuSelection { NewGame, LoadGame, Quit}
@@ -302,8 +304,8 @@ struct Tooltip {
     ttype : TipType
 }
 impl Tooltip {
-    fn new() -> Tooltip {
-        Tooltip { lines : Vec::new(), ttype: TipType::Unknown}
+    fn new(ttype : TipType) -> Tooltip {
+        Tooltip { lines : Vec::new(), ttype: ttype}
     }
 
     fn add<S:ToString>(&mut self, line : S) {
@@ -334,26 +336,9 @@ impl Tooltip {
             ctx.print_color(x+1, y+i as i32+1, col, black, &s);
         }
         */
-        let assests =  ecs.fetch::<RexAssets>();
-        ctx.render_xp_sprite(&assests.de_card, 0,0);
-    }
 
-
-    fn new_card<'a>( name: &Name, /*stats: CombatStats,*/ model: &Renderable) -> Tooltip{
-        let mut tip = Tooltip::new();
-
-        let name_too_large = name.name.len() >= 14;
-        let new_name : String;
-        if name_too_large {
-            new_name = name.name[0..14].to_string();
-        } else {
-
-        }
-        tip
     }
 }
-
-
 
 fn draw_tooltips(ecs: &World, ctx : &mut Rltk) {
     let (min_x, _max_x, min_y, _max_y) = camera::get_screen_bounds(ecs, ctx);
@@ -362,7 +347,6 @@ fn draw_tooltips(ecs: &World, ctx : &mut Rltk) {
     let positions = ecs.read_storage::<Position>();
     let hidden = ecs.read_storage::<Hidden>();
 
-    let details = ctx.key == Some(VirtualKeyCode::LShift) || ctx.key == Some(VirtualKeyCode::RShift);
     let mouse_pos = ctx.mouse_pos();
     let mut mouse_map_pos = mouse_pos;
     mouse_map_pos.0 += min_x;
@@ -373,14 +357,27 @@ fn draw_tooltips(ecs: &World, ctx : &mut Rltk) {
     }
     if !map.visible_tiles[map.xy_idx(mouse_map_pos.0, mouse_map_pos.1)] { return; }
 
-    if details {
-        let Entities = ecs.entities();
-        let Renderables = ecs.read_storage::<Renderable>();
-        //let Stats = ecs.read_storage::<CombatStats>();
-        for (entity, name, position, _hidden, renderable) in (&Entities, &names, &positions, !&hidden, &Renderables).join() {
+    let input = INPUT.lock();
+    if input.is_key_pressed(VirtualKeyCode::LShift) {
+        let Cards = ecs.read_storage::<CardID>();
+        let CARD_WIDTH = 20;
+        for (_name, position, _hidden, id) in (&names, &positions, !&hidden, &Cards).join() {
             if position.x == mouse_map_pos.0 && position.y == mouse_map_pos.1 {
-                let tooltip = Tooltip::new_card(name, renderable);
-                tooltip.render(ctx, ecs, mouse_map_pos.0 + 2, mouse_map_pos.1);
+                let card_x;
+                if mouse_pos.0 > 40 {
+                    let arrow_pos = Point::new(mouse_pos.0 - 1, mouse_pos.1);
+                    card_x = mouse_pos.0 - CARD_WIDTH;
+                    ctx.print_color(arrow_pos.x, arrow_pos.y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), &"→".to_string());
+                } else {
+                    let arrow_pos = Point::new(mouse_pos.0 + 1, mouse_pos.1);
+                    card_x = mouse_pos.0 + 1;
+                    ctx.print_color(arrow_pos.x, arrow_pos.y, RGB::named(rltk::WHITE), RGB::named(rltk::GREY), &"←".to_string());
+                }
+                let mut assets =  ecs.fetch_mut::<RexAssets>();
+                if assets.cur_id.id != id.id {
+                    assets.load_new_card(id);
+                }   
+                ctx.render_xp_sprite(&assets.cur_card, card_x, mouse_pos.1);
             }
         }
     } else {
@@ -433,14 +430,11 @@ fn draw_inventory(ecs: &World, ctx: &mut Rltk) {
     
     let entities = ecs.entities();
     let player_entity = ecs.fetch::<Entity>();
-    //let names = ecs.read_storage::<Name>();
     let renderables = ecs.read_storage::<Renderable>();
     let backpacks = ecs.read_storage::<InBackpack>();
     let pack_sizes = ecs.read_storage::<BackpackSize>();
 
     let player_pack_size = pack_sizes.get(*player_entity).expect("Could not obtain player pack size.");
-
-    //let item_in_p_inv = (item, inpack) in (&backpacks, )
 
     let inventory_loc = (50, 19);
     
@@ -497,12 +491,17 @@ pub fn draw_ui(ecs: &World, ctx : &mut Rltk) {
         if y < 59 { ctx.print(2, y, s); }
         y += 1;
     }
+
+    // Inventory
     draw_inventory(ecs, ctx);
 
     //Mouse Highlight
     let mouse_pos = ctx.mouse_pos();
     ctx.set_bg(mouse_pos.0, mouse_pos.1, RGB::named(rltk::MAGENTA));
     draw_tooltips(ecs, ctx);
+
+    //Debug Controls
+    ctx.print_color(68, 59, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), format!("Shift: {:?}", ctx.shift));
 }
 
 pub fn ranged_target(gs : &mut State, ctx : &mut Rltk, range : i32) -> (ItemMenuResult, Option<Point>) {
