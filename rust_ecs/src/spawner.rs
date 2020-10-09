@@ -31,22 +31,38 @@ pub fn player(ecs : &mut World, player_x : i32, player_y : i32) -> Entity {
         .build()
 }
 
-fn orc(ecs: &mut World, x: i32, y: i32) { monster(ecs, x, y, rltk::to_cp437('o'), "Orc"); }
-fn goblin(ecs: &mut World, x: i32, y: i32) { monster(ecs, x, y, rltk::to_cp437('g'), "Goblin"); }
-
-fn monster<S : ToString>(ecs: &mut World, x: i32, y: i32, glyph : rltk::FontCharType, name : S) {
+fn orc(ecs: &mut World, x: i32, y: i32) { 
     ecs.create_entity()
         .with(Position{ x, y })
         .with(Renderable{
-            glyph,
+            glyph: rltk::to_cp437('o'),
             fg: RGB::named(rltk::RED),
             bg: RGB::named(rltk::BLACK),
             render_order: 1
         })
         .with(Viewshed{ visible_tiles : Vec::new(), range: 8, dirty: true })
         .with(Monster{})
-        .with(Name{ name : name.to_string() })
+        .with(Name{ name : String::from("Orc") })
         .with(BlocksTile{})
+        .with(CombatStats{ max_hp: 16, hp: 16, defense: 1, power: 5 })
+        .with(CardID{id: 200})
+        .marked::<SimpleMarker<SerializeMe>>()
+        .build();
+}
+fn goblin(ecs: &mut World, x: i32, y: i32) { 
+    ecs.create_entity()
+        .with(Position{ x, y })
+        .with(Renderable{
+            glyph: rltk::to_cp437('g'),
+            fg: RGB::named(rltk::RED),
+            bg: RGB::named(rltk::BLACK),
+            render_order: 1
+        })
+        .with(Viewshed{ visible_tiles : Vec::new(), range: 8, dirty: true })
+        .with(Monster{})
+        .with(Name{ name : String::from("Goblin") })
+        .with(BlocksTile{})
+        .with(CardID{id: 201})
         .with(CombatStats{ max_hp: 16, hp: 16, defense: 1, power: 4 })
         .marked::<SimpleMarker<SerializeMe>>()
         .build();

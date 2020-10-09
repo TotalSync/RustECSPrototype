@@ -1,6 +1,5 @@
 use rltk::{rex::XpFile};
 use std::fs::*;
-use std::io::prelude::*;
 use super::{CardID};
 
 //rltk::embedded_resource!(SMALL_DUNGEON, "../resources/SmallDungeon_80x50.xp");
