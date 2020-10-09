@@ -149,6 +149,12 @@ impl Map {
         let stairs_idx = map.xy_idx(stairs_position.0, stairs_position.1);
         map.tiles[stairs_idx] = TileType::DownStairs;
 
+        if new_depth > 1 {
+            let u_stairs_position = map.rooms[0].center();
+            let u_stairs_idx = map.xy_idx(u_stairs_position.0, u_stairs_position.1);
+            map.tiles[u_stairs_idx] = TileType::UpStairs;
+        }
+
         map
     }
 }
