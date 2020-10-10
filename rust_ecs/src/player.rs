@@ -50,6 +50,20 @@ pub fn try_next_level(ecs: &mut World) -> bool {
     }
 }
 
+pub fn try_last_level(ecs: &mut World) -> bool {
+    let player_pos = ecs.fetch::<Point>();
+    let map = ecs.fetch::<Map>();
+    let player_idx = map.xy_idx(player_pos.x, player_pos.y);
+    let mut gamelog = ecs.fetch_mut::<GameLog>();
+    if map.tiles[player_idx] == TileType::UpStairs {
+        gamelog.entries.push("You try to go back, but the way has shifted, preventing you from leaving.".to_string());
+        false
+    } else {
+        gamelog.entries.push("There is no way back from here.".to_string());
+        false
+    }
+}
+
 fn get_item(ecs: &mut World) {
     let player_pos = ecs.fetch::<Point>();
     let player_entity = ecs.fetch::<Entity>();
@@ -162,6 +176,13 @@ pub fn player_input(gs: &mut State, ctx: &mut Rltk) -> RunState {
                 if try_next_level(&mut gs.ecs) {
                     return RunState::NextLevel;
                 }
+            }
+
+            VirtualKeyCode::Comma => {
+                if try_last_level(&mut gs.ecs) {
+                    
+                }
+
             }
             
             _ => {return RunState::AwaitingInput}
