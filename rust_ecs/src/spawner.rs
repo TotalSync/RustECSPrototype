@@ -225,7 +225,7 @@ fn health_potion(ecs: &mut World, x: i32, y: i32) {
         .with(Name{ name : "Health Potion".to_string() })
         .with(Item{})
         .with(Consumable{})
-        .with(CardID{id: 200})
+        .with(CardID{id: 100})
         .with(ProvidesHealing{ heal_amount: 8 })
         .marked::<SimpleMarker<SerializeMe>>()
         .build();
