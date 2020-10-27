@@ -293,53 +293,6 @@ pub fn draw_inventory_line(
     }
 }
 
-enum TipType {
-    Unknown,
-    Monster,
-    Item
-}
-//Unimplemented tooltips
-struct Tooltip {
-    lines : Vec<String>,
-    ttype : TipType
-}
-impl Tooltip {
-    fn new(ttype : TipType) -> Tooltip {
-        Tooltip { lines : Vec::new(), ttype: ttype}
-    }
-
-    fn add<S:ToString>(&mut self, line : S) {
-        self.lines.push(line.to_string());
-    }
-
-    fn width(&self) -> i32 {
-        let mut max = 0;
-        for s in self.lines.iter() {
-            if s.len() > max {
-                max = s.len();
-            }
-        }
-        max as i32 + 2i32
-    }
-
-    fn height(&self) -> i32 { self.lines.len() as i32 + 2i32 }
-
-    fn render(&self, ctx : &mut Rltk, ecs : &World, x : i32, y : i32) {
-        /*
-        let box_gray : RGB = RGB::from_hex("#999999").expect("Oops");
-        let light_gray : RGB = RGB::from_hex("#DDDDDD").expect("Oops");
-        let white = RGB::named(rltk::WHITE);
-        let black = RGB::named(rltk::BLACK);
-        ctx.draw_box(x, y, self.width()-1, self.height()-1, white, box_gray);
-        for (i,s) in self.lines.iter().enumerate() {
-            let col = if i == 0 { white } else { light_gray };
-            ctx.print_color(x+1, y+i as i32+1, col, black, &s);
-        }
-        */
-
-    }
-}
-
 fn draw_tooltips(ecs: &World, ctx : &mut Rltk) {
     let (min_x, _max_x, min_y, _max_y) = camera::get_screen_bounds(ecs, ctx);
     let map = ecs.fetch::<Map>();
@@ -499,9 +452,6 @@ pub fn draw_ui(ecs: &World, ctx : &mut Rltk) {
     let mouse_pos = ctx.mouse_pos();
     ctx.set_bg(mouse_pos.0, mouse_pos.1, RGB::named(rltk::MAGENTA));
     draw_tooltips(ecs, ctx);
-
-    //Debug Controls
-    ctx.print_color(68, 59, RGB::named(rltk::YELLOW), RGB::named(rltk::BLACK), format!("Shift: {:?}", ctx.shift));
 }
 
 pub fn ranged_target(gs : &mut State, ctx : &mut Rltk, range : i32) -> (ItemMenuResult, Option<Point>) {

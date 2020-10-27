@@ -366,11 +366,13 @@ impl GameState for State {
 
 fn main() -> rltk::BError {
     use rltk::RltkBuilder;
+    let size : u8 = 12;
     let mut context = RltkBuilder::simple(80,60).unwrap()
         .with_title("TBD Roguelike")
-        //.with_advanced_input(true)
+        .with_font(format!("cp437_{:?}x{:?}.png",size, size), size, size)
         .build()?;
     context.with_post_scanlines(true);
+    context.set_active_font(1 as usize, false);
     let mut gs = State {
         ecs: World::new(),
     };
